@@ -6,8 +6,10 @@ import os.path
 from xml.etree import ElementTree as etree
 import xmlindent
 
+# Empty corpus
 start = '<corpus><body></body></corpus>'
 
+# Creates a tree for one sentence
 def mkSent(n,lines):
   n = n+1
   s = etree.fromstring(start).makeelement('s',{'id':'s'+str(n)})
@@ -33,10 +35,10 @@ def mkSent(n,lines):
       nt = g.find('nonterminals')
       x = etree.SubElement(nt,'nt',{'id':mkref('p',n,i),'form':w, 'postag':pos})
       etree.SubElement(x,'edge',{'idref':mkref('w',n,i),'label':'--'})
-      if depr=='ROOT':
+      if depr=='ROOT':     # if this is the root, add info to graph node
          g.attrib.update({'root':mkref('p',n,i)})
       for (j,line) in enumerate(lines):
-      # for all words with this as head, add an edge
+      # for all words with this as head, add an edge from this one with correct label
         tabs = line.split('\t')
         if line.strip()!= '' and tabs!=[]:
           head = tabs[9]
@@ -45,18 +47,21 @@ def mkSent(n,lines):
            etree.SubElement(x,'edge',{'idref':mkref('p',n,j),'label':depr})
   return s
 
+# Formatting for xml-values
 def form(w):
     if w.strip()=='|':
        return '--'
     return w.strip('|')
 
+# Creates a name eg. "s1_2"
 def mkref(name,n,i):
     return name+str(n)+'_'+str(i)
 
+# Converts vrt-files to tigerxml
 def createtiger():
    import glob
    import os.path
-   for fil in glob.glob('vrt/*'): #['test1.vrt']: #
+   for fil in glob.glob('vrt/*'):
      name = os.path.basename(fil).split('.')[0]
      txt = open(fil,'r').read()
      xml = etree.fromstring('<doc>'+txt+'</doc>')
