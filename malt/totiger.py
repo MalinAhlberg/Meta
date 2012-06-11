@@ -1,10 +1,12 @@
 # -*- coding: utf_8 -*-
+## OBS the root are called MS!!
 
 import re
 import codecs
 import os.path
 from xml.etree import ElementTree as etree
 import xmlindent
+from collections import defaultdict
 
 # Empty corpus
 start = '<corpus><body></body></corpus>'
@@ -16,6 +18,10 @@ def mkSent(n,lines):
   g = etree.SubElement(s,'graph')
   etree.SubElement(g,'terminals')
   etree.SubElement(g,'nonterminals')
+  unrooted = set([])
+  deprs    = {}
+  root = None
+  map(lambda i: unrooted.add(i+1),range(len(lines)-2))
   for (i,line) in enumerate(lines):
     tabs = line.split('\t')
     if line.strip()!='' and tabs!=[]:
@@ -28,15 +34,18 @@ def mkSent(n,lines):
       pref = tabs[6] 
       suff = tabs[7] 
       depr = tabs[10].strip('\n')
+      deprs.update({i:depr})
       t = g.find('terminals')
       etree.SubElement(t,'t',{'id':mkref('w',n,i),'form':w, 'postag':pos, 'lemma':form(wf)
-                             ,'lex':form(lex),'saldo':form(sal),'pos':p2})
-                             # ,'prefix':form(pref),'suffix':form(suff) -- Use or not?
+                             ,'lex':form(lex),'saldo':form(sal),'pos':p2
+                             ,'prefix':form(pref),'suffix':form(suff)}) #-- Use or not?
       nt = g.find('nonterminals')
       x = etree.SubElement(nt,'nt',{'id':mkref('p',n,i),'form':w, 'postag':pos})
       etree.SubElement(x,'edge',{'idref':mkref('w',n,i),'label':'--'})
       if depr=='ROOT':     # if this is the root, add info to graph node
          g.attrib.update({'root':mkref('p',n,i)})
+         unrooted.discard(i) # the node does not need another parent
+         root = i
       for (j,line) in enumerate(lines):
       # for all words with this as head, add an edge from this one with correct label
         tabs = line.split('\t')
@@ -44,9 +53,34 @@ def mkSent(n,lines):
           head = tabs[9]
           depr = tabs[10].strip('\n')
           if head and int(head)==i: 
-           etree.SubElement(x,'edge',{'idref':mkref('p',n,j),'label':depr})
+           unrooted.discard(j)
+           etree.SubElement(x,'edge',{'idref':mkref('p',n,j),'label':label(depr)})
+  fixroot(g,unrooted,deprs,n,root)
   return s
 
+# ROOTs should be called MS as the added root needs the 'ROOT'-name
+def label(s):
+  if s=='ROOT':
+    return 'MS'
+  else:
+    return s
+
+# add an artificial root if needed
+def fixroot(g,unrooted,deprs,n,root):
+#  if len(unrooted)>0:
+    g.attrib.update({'root':mkref('p',n,0)})
+    nt = g.find('nonterminals')
+    x  = etree.SubElement(nt,'nt',{'id':mkref('p',n,0),'form':'--', 'postag':'ROOT'})
+    for i in unrooted:
+      depr = deprs.get(i)
+      if depr is None:
+        print unrooted,deprs,n,i
+      etree.SubElement(x,'edge',{'idref':mkref('p',n,i),'label':depr})
+    if root is not None:
+      etree.SubElement(x,'edge',{'idref':mkref('p',n,root),'label':'MS'})
+      
+      
+  
 # Formatting for xml-values
 def form(w):
     if w.strip()=='|':
@@ -73,7 +107,7 @@ def createtiger():
        stxt = '\n'.join(list(s.itertext()))
        body.append(mkSent(i,stxt.split('\n')))
      xmlindent.indent(xmls)
-     open('doneprefsuf/'+name+'.xml','w').write(etree.tostring(xmls,encoding='utf8'))
+     open('hej/'+name+'.xml','w').write(etree.tostring(xmls,encoding='utf8'))
    
 
 
